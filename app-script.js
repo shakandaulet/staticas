@@ -215,7 +215,7 @@ function showErrors(problems) {
 // then open the result page with a demo script.
 // When Student 2's server is running, put its address here, e.g.:
 // const BACKEND_URL = 'http://localhost:5000/api/generate';
-const BACKEND_URL = '[https://statics-api.onrender.com/generate](https://statics-api.onrender.com/generate)';
+const BACKEND_URL = 'https://staticas.onrender.com/generate';
 
 // ---- Demo script shown while the backend is not connected ----
 const DEMO_SCRIPT = `# ============================================================
