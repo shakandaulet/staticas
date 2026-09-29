@@ -1,7 +1,6 @@
 ﻿# Copy to run.ps1 and put your key in it. run.ps1 is git-ignored;
 # this example is not, so do not put a key in THIS file.
 
-$env:GEMINI_API_KEY = "AQ.Ab8RN6JN-ZvTufS036NaUDW6k_cZsSEf4-_Xpfx8mchKsrHXzg"
 
 # Optional overrides.
 # $env:GEMINI_PLANNER_MODEL = "gemini-3.6-flash"
