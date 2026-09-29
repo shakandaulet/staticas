@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statica — SolidWorks Script Generator</title>
+
+<!-- Design (CSS) lives in its own file -->
+<link rel="stylesheet" href="app-style.css">
+</head>
+<body>
+<!-- Firebase (Google login service) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<!-- ---------- Login screen (covers the app until the user signs in) ---------- -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <h1 class="auth-title">Statica</h1>
+    <p class="auth-subtitle" id="authSubtitle">Log in to continue</p>
+
+    <label for="authEmail">Email</label>
+    <input type="text" id="authEmail" placeholder="person@gmail.com" autocomplete="email">
+
+    <label for="authPassword" style="margin-top:12px;">Password</label>
+    <div class="password-wrap">
+      <input type="password" id="authPassword" placeholder="At least 6 characters" autocomplete="current-password">
+      <button type="button" class="eye-btn" id="togglePassword" title="Show / hide password">👁</button>
+    </div>
+
+    <p class="auth-error" id="authError"></p>
+
+    <button class="btn-generate auth-btn" id="authSubmitBtn">Log In</button>
+
+    <p class="auth-switch">
+      <span id="authSwitchText">No account yet?</span>
+      <a href="#" id="authSwitchLink">Sign Up</a>
+    </p>
+
+    <p class="auth-note" id="authNote" hidden>
+      ⚠️ Firebase is not configured yet — see FIREBASE_CONFIG in app-script.js.<br>
+      <a href="#" id="demoLink">Continue in demo mode (no login)</a>
+    </p>
+  </div>
+</div>
+
+<div class="container">
+
+  <header>
+    <h1><span class="logo"></span>Statica</h1>
+    <button class="btn-logout" id="logoutBtn" hidden>Log Out</button>
+  </header>
+
+  <!-- 1 & 2: Prompt + Image -->
+  <div class="card">
+    <div class="grid-2">
+      <div>
+        <h2>Problem Description </h2>
+        <textarea id="prompt" placeholder="Example: A cantilever beam 2 meters long fixed at the left end with a 500 N downward force at the right end..."></textarea>
+      </div>
+      <div>
+        <h2>Image Upload (Hibbeler Statics Diagram)</h2>
+        <div class="dropzone" id="dropzone">
+          <span class="icon">📁</span>
+          <span id="dz-text">Click or drag a photo of the problem here</span>
+          <span class="filename" id="dz-file"></span>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <p class="field-error" id="imageError"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3: Material -->
+  <div class="card">
+    <h2>Material Properties Menu</h2>
+    <div class="grid-4">
+      <div>
+        <label for="material">Standard material</label>
+        <select id="material">
+          <option value="steel1020" data-e="200" data-nu="0.29" data-sy="350">AISI 1020 Steel</option>
+          <option value="al6061" data-e="69" data-nu="0.33" data-sy="275">6061-T6 Aluminum Alloy</option>
+          <option value="steel304" data-e="193" data-nu="0.29" data-sy="215">AISI 304 Stainless Steel</option>
+          <option value="titanium" data-e="105" data-nu="0.34" data-sy="880">Ti-6Al-4V Titanium</option>
+          <option value="custom">Custom (enter values manually)</option>
+        </select>
+      </div>
+      <div>
+        <label for="young">Young's Modulus (GPa)</label>
+        <input type="number" id="young" value="200" step="1">
+      </div>
+      <div>
+        <label for="poisson">Poisson's Ratio</label>
+        <input type="number" id="poisson" value="0.29" step="0.01">
+      </div>
+      <div>
+        <label for="yield">Yield Strength (MPa)</label>
+        <input type="number" id="yield" value="350" step="1">
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 & 5: Geometry + Loads -->
+  <div class="card">
+    <div class="grid-2">
+      <div>
+        <h2>Geometry Overrides (Optional)</h2>
+        <div class="grid-3">
+          <div>
+            <label for="len">Length L (m)</label>
+            <input type="number" id="len" value="2.0" step="0.1">
+          </div>
+          <div>
+            <label for="wid">Width W (m)</label>
+            <input type="number" id="wid" value="0.05" step="0.01">
+          </div>
+          <div>
+            <label for="hgt">Height H (m)</label>
+            <input type="number" id="hgt" value="0.1" step="0.01">
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2>Loads &amp; Fixtures</h2>
+        <div class="grid-2" style="gap:16px;">
+          <div>
+            <label for="fixture">Fixtures (Support)</label>
+            <select id="fixture">
+              <option>Fixed at left end</option>
+              <option>Fixed at right end</option>
+              <option>Fixed at both ends</option>
+              <option>Simply supported</option>
+            </select>
+          </div>
+          <div>
+            <label for="force">Force Magnitude (N)</label>
+            <input type="number" id="force" value="500" step="10">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mesh -->
+  <div class="card">
+    <h2>Mesh Density Settings (PC Protection)</h2>
+    <div class="mesh-options">
+      <label class="radio-item">
+        <input type="radio" name="mesh" value="coarse" checked>
+        Extremely Coarse <span class="hint">(recommended)</span>
+      </label>
+      <label class="radio-item">
+        <input type="radio" name="mesh" value="standard">
+        Standard Mesh
+      </label>
+    </div>
+  </div>
+
+  <!-- validation messages appear here -->
+  <div class="form-errors" id="formErrors" hidden></div>
+
+  <button class="btn-generate" id="generateBtn">Generate Python Script</button>
+
+  <footer>The generated .py file runs locally with SolidWorks 2024 open (requires pywin32).</footer>
+</div>
+
+<!-- Logic (JavaScript) lives in its own file. Must come last, after all the HTML above. -->
+<script src="app-script.js"></script>
+</body>
+</html>

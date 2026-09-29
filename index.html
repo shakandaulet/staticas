@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statica — Statics to Simulation</title>
+<style>
+  :root {
+    --bg: #1f3a5f;
+    --grid-line: rgba(200, 215, 235, 0.07);
+    --cream: #f2eee3;
+    --cream-soft: #c9d3e0;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ================= Hero: text left, beam right ================= */
+  .hero {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: center;
+    gap: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 50px 48px 10px;
+    width: 100%;
+  }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; text-align: center; padding: 36px 20px 10px; }
+    .scene { justify-self: center; transform: scale(1); }
+  }
+
+  .hero h1 {
+    font-size: clamp(46px, 7.2vw, 88px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.02;
+  }
+  /* logo will go here later, right before the title text */
+
+  .hero .tagline {
+    margin-top: 46px;
+    font-size: clamp(15px, 1.8vw, 18px);
+    color: var(--cream-soft);
+    line-height: 1.65;
+    max-width: 560px;
+  }
+
+  @media (max-width: 860px) { .hero .tagline { margin-left: auto; margin-right: auto; } }
+
+  .btn-start {
+    display: inline-block;
+    margin-top: 30px;
+    padding: 15px 46px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: background 0.15s, transform 0.15s;
+  }
+
+  .btn-start:hover { background: var(--accent-dark); transform: translateY(-2px); }
+
+  .made-by {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--cream-soft);
+    opacity: 0.7;
+  }
+
+  /* ================= Rotating 3D beam ================= */
+  .scene {
+    width: 340px;
+    height: 320px;
+    max-width: 100%;
+    perspective: 950px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;             /* push to the right side */
+    transform: scale(1.45);        /* bigger */
+    transform-origin: center right;
+  }
+
+  .beam {
+    position: relative;
+    width: 220px;
+    height: 70px;
+    transform-style: preserve-3d;
+    animation: spin 9s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotateX(-22deg) rotateY(0deg); }
+    to   { transform: rotateX(-22deg) rotateY(360deg); }
+  }
+
+  .face {
+    position: absolute;
+    border: 2px solid var(--cream);
+    background: rgba(242, 238, 227, 0.06);
+  }
+
+  .face.front  { width: 220px; height: 70px; transform: translateZ(35px); }
+  .face.back   { width: 220px; height: 70px; transform: translateZ(-35px); }
+  .face.left   { width: 70px; height: 70px; transform: rotateY(90deg) translateZ(-35px); left: -35px; top: 0; }
+  .face.right  { width: 70px; height: 70px; transform: rotateY(90deg) translateZ(185px); left: -35px; }
+  .face.top    { width: 220px; height: 70px; transform: rotateX(90deg) translateZ(35px); }
+  .face.bottom { width: 220px; height: 70px; transform: rotateX(90deg) translateZ(-35px); }
+
+  /* fixed-end hatching on the left face (wall symbol) */
+  .face.left {
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(242, 238, 227, 0.25) 0 2px,
+      transparent 2px 8px
+    );
+  }
+
+  /* force arrow above the free end of the beam */
+  .force {
+    position: absolute;
+    right: -6px;
+    top: -68px;
+    width: 2px;
+    height: 48px;
+    background: #f6c453;
+    transform: translateZ(35px);
+    animation: press 1.6s ease-in-out infinite;
+  }
+
+  .force::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: -5px;
+    border: 6px solid transparent;
+    border-top: 10px solid #f6c453;
+  }
+
+  .force::before {
+    content: "F";
+    position: absolute;
+    top: -20px;
+    left: -4px;
+    color: #f6c453;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  @keyframes press {
+    0%, 100% { height: 48px; }
+    50%      { height: 58px; }
+  }
+
+  /* ================= Animated dimension line (bottom) ================= */
+  .rulers {
+    width: 100%;                  /* edge-to-edge */
+    padding: 0 0 42px;
+  }
+
+  .rulers svg { width: 100%; height: 74px; display: block; }
+
+  .dim-line {
+    stroke: var(--cream);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    fill: none;
+    stroke-dasharray: 4000;       /* in screen px because of non-scaling-stroke: must exceed any screen width */
+    stroke-dashoffset: 4000;
+    animation: draw 3.2s ease forwards;
+  }
+
+  .dim-line.delay { animation-delay: 0.9s; }
+
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .dim-text {
+    fill: var(--cream-soft);
+    font-size: 12px;
+    font-family: "Consolas", monospace;
+    opacity: 0;
+    animation: appear 0.8s ease forwards 2.2s;
+  }
+
+  @keyframes appear { to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+  <!-- ============ Hero ============ -->
+  <div class="hero">
+    <div>
+      <h1>Statica</h1>
+      <p class="tagline">
+        Turn a Hibbeler statics problem into a ready-to-run SolidWorks 2024
+        simulation. Describe the task or upload a photo — get a Python script
+        that builds the part, applies the loads, and runs the study.
+      </p>
+      <a class="btn-start" href="app.html">Get Started →</a>
+      <p class="made-by"></p>
+    </div>
+
+    <!-- Rotating wireframe beam with a force arrow -->
+    <div class="scene">
+      <div class="beam">
+        <div class="face front"></div>
+        <div class="face back"></div>
+        <div class="face left"></div>
+        <div class="face right"></div>
+        <div class="face top"></div>
+        <div class="face bottom"></div>
+        <div class="force"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Animated dimension line ============ -->
+  <div class="rulers">
+    <svg viewBox="0 0 1000 74" preserveAspectRatio="none">
+      <path class="dim-line" vector-effect="non-scaling-stroke"
+            d="M 10 24 L 10 56 M 10 40 L 990 40 M 990 24 L 990 56" />
+      <path class="dim-line delay" vector-effect="non-scaling-stroke"
+            d="M 140 34 L 140 46 M 260 34 L 260 46 M 380 34 L 380 46 M 500 34 L 500 46
+               M 620 34 L 620 46 M 740 34 L 740 46 M 860 34 L 860 46" />
+      <text class="dim-text" x="493" y="66">L = 2.0 m</text>
+    </svg>
+  </div>
+
+</body>
+</html>

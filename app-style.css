@@ -1,0 +1,319 @@
+/* ================== AutoStatics AI — Design ================== */
+
+:root {
+  --bg: #1f395c;                            /* dark navy background */
+  --grid-line: #2b4268;                     /* grid-cell lines */
+  --paper: #ebebe8;
+  --ink: #1e293b;
+  --ink-soft: #182433;
+  --accent: #2e599b;
+  --accent-dark: #074b99;
+  --accent-soft: #dfdfd7;
+  --border: #bdbdb3;
+  --radius: 10px;
+  --mono: "Consolas", "SF Mono", "Menlo", monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 40px 16px 80px;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ---------- Header ---------- */
+header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+header h1 {
+  font-size: 30px;
+  font-weight: 700;
+  color: #f2eee3;                 /* cream title (the change you liked) */
+  letter-spacing: -0.5px;
+}
+
+header h1 .logo { margin-right: 8px; }
+
+header p {
+  margin-top: 6px;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+/* ---------- Cards (your frames, untouched) ---------- */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(30, 41, 59, 0.05);
+}
+
+.card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+/* ---------- Grid helpers ---------- */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 16px; }
+
+@media (max-width: 720px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+/* ---------- Form fields ---------- */
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ebebe8;
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+textarea {
+  font-family: var(--mono);
+  font-size: 13px;
+  min-height: 130px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* ---------- Image upload ---------- */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  height: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 14px;
+  transition: border-color 0.15s, background 0.15s;
+  padding: 12px;
+}
+
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.dropzone .icon { font-size: 22px; }
+.dropzone .filename { font-family: var(--mono); font-size: 12px; color: var(--accent-dark); }
+
+/* ---------- Mesh radio group ---------- */
+.mesh-options { display: flex; gap: 32px; flex-wrap: wrap; }
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.radio-item input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+.radio-item .hint { color: var(--ink-soft); font-size: 13px; }
+
+/* ---------- Submit button (the bright blue you liked) ---------- */
+.btn-generate {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: #2563eb;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn-generate:hover { background: #1d4ed8; }
+.btn-generate:active { transform: scale(0.995); }
+
+footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: #ebebe8;
+}
+
+/* ---------- Login screen (your version) ---------- */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.auth-overlay[hidden] { display: none; }
+
+.auth-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(30, 41, 59, 0.08);
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.auth-title {
+  font-size: 24px;
+  color: #1aa7e9;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.auth-btn { margin-top: 16px; padding: 12px; font-size: 15px; }
+
+.auth-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 16px;
+}
+
+.auth-switch a, .auth-note a { color: var(--accent); font-weight: 600; }
+
+.auth-note {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ---------- Log Out (the transparent version you liked) ---------- */
+.btn-logout {
+  margin-top: 10px;
+  padding: 6px 16px;
+  border: 1px solid rgba(242, 238, 227, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #c9d3e0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-logout:hover { border-color: #f2eee3; color: #f2eee3; }
+
+/* ---------- Password show/hide ---------- */
+.password-wrap { position: relative; }
+
+.password-wrap input { padding-right: 42px; }
+
+.eye-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  font-size: 17px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.eye-btn:hover { opacity: 1; }
+
+.eye-btn.active { opacity: 1; }
+
+/* ================== Additions: form validation ================== */
+
+/* invalid field highlight */
+.invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+}
+
+.field-error {
+  color: #ffb4b4;
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+
+/* validation summary box above the button */
+.form-errors {
+  background: #fdecec;
+  border: 1px solid #f3b6b6;
+  border-radius: var(--radius);
+  color: #a01f1f;
+  font-size: 13.5px;
+  line-height: 1.55;
+  padding: 12px 18px;
+  margin-bottom: 14px;
+}
+
+.form-errors ul { padding-left: 18px; }
