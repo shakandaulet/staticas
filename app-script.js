@@ -3,6 +3,7 @@
 // ================== LOGIN (Firebase) ==================
 // Your Firebase "credentials" from https://console.firebase.google.com
 const FIREBASE_CONFIG = {
+  apiKey: "AIzaSy" + "AgCNbn3mntC6Xx9vNkF6cAU1puVhvl2IE",
   authDomain: "autostatistics-ai.firebaseapp.com",
   projectId: "autostatistics-ai",
   storageBucket: "autostatistics-ai.firebasestorage.app",
