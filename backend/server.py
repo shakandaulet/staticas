@@ -11,7 +11,7 @@ from google.genai import types
 from engineering.rag.index import KnowledgeBase
 from engineering.rag.retriever import retrieve
 
-# Initialize the knowledge base on server startup
+# Initialize the knowledge base on serverstartup
 kb = KnowledgeBase.load()
 
 app = FastAPI()
