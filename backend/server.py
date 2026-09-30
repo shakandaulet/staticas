@@ -139,5 +139,9 @@ async def generate_script(data: str = Form(...), image: UploadFile = File(None))
 
 if __name__ == "__main__":
     import uvicorn
-    # Starts the server on port 8000
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    import os
+    
+    # Render assigns a dynamic PORT environment variable.
+    # We use it, or fallback to 8000 for local development.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
