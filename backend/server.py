@@ -34,8 +34,8 @@ system_instruction = """
 You are an expert mechanical engineer and SolidWorks Python API developer.
 CRITICAL RULES:
 1. Output ONLY valid Python code using win32com.client. Do NOT wrap the code in markdown blocks (do not use ```python).
-2. You MUST use the exact numerical parameters (geometry, forces, material properties) provided by the user.
-3. Do NOT blindly copy templates from the knowledge base. Use the knowledge base for syntax and logic, but insert the user's specific numbers and conditions.
+2. The [KNOWLEDGE BASE CONTEXT] contains EXAMPLES. DO NOT solve the example problems! Ignore any dimensions, materials, or forces mentioned in the knowledge base. Use it ONLY to understand the API syntax.
+3. You MUST extract all dimensions, forces, and material properties EXCLUSIVELY from the [ACTUAL USER TASK] block.
 """
 
 # 3. The API Endpoint
@@ -57,22 +57,24 @@ async def generate_script(data: str = Form(...), image: UploadFile = File(None))
         rag_context = "No text description provided. Rely strictly on the attached image."
         user_text = "Please analyze the attached image."
 
-    # 2. Prompt assembly
+
     user_prompt = f"""
-    Create a SolidWorks Python script. You must strictly apply the parameters listed in the [USER TASK] block below.
-    
-    [KNOWLEDGE BASE CONTEXT]
+    [KNOWLEDGE BASE CONTEXT (FOR API SYNTAX REFERENCE ONLY)]
     {rag_context}
     [/KNOWLEDGE BASE CONTEXT]
 
-    [USER TASK PARAMETERS]
+    =========================================
+    [ACTUAL USER TASK - SOLVE THIS EXACT PROBLEM]
+    =========================================
     - Problem Description: {user_text}
     - Material Name: {params['material']['name']}
     - Material Properties: Yield = {params['material']['yieldStrengthMPa']} MPa, Young's Modulus = {params['material']['youngsModulusGPa']} GPa, Poisson = {params['material']['poissonsRatio']}
     - Geometry: Length = {params['geometry']['lengthM']} m, Width = {params['geometry']['widthM']} m, Height = {params['geometry']['heightM']} m
     - Loads: Fixture Type = {params['loads']['fixture']}, Force = {params['loads']['forceN']} N
     - Mesh Quality: {params['mesh']}
-    [/USER TASK PARAMETERS]
+    =========================================
+    
+    Write the SolidWorks Python script for the [ACTUAL USER TASK]. Use ONLY the numerical values and conditions listed in the block above.
     """
     
     contents = [user_prompt]
