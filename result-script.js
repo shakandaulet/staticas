@@ -11,12 +11,10 @@
   let aiParsed = null;
   try { aiParsed = JSON.parse(sessionStorage.getItem('parsedData')); } catch {}
 
-  // If the AI sent its own understanding of the task, the picture, the
-  // description and the strength check are built from THAT — so they match
-  // the user's photo, not just the form fields. Missing values fall back
-  // to the form.
+  // Added 'Fixed at bottom' to allow the AI to switch to vertical mode
   const FIXTURES = ['Fixed at left end', 'Fixed at right end',
-                    'Fixed at both ends', 'Simply supported'];
+                    'Fixed at both ends', 'Simply supported', 
+                    'Fixed at bottom'];
 
   function pickNum(aiValue, formValue) {
     const n = parseFloat(aiValue);
@@ -70,14 +68,15 @@
       'Fixed at left end':  'at the free right end',
       'Fixed at right end': 'at the free left end',
       'Fixed at both ends': 'at the middle of the span',
-      'Simply supported':   'at the middle of the span'
+      'Simply supported':   'at the middle of the span',
+      'Fixed at bottom':    'at the free top face (pulling up)'
     }[fixture] || 'on the beam';
 
     document.getElementById('partSummary').innerHTML =
       'A <b>' + t.material.name + '</b> beam, ' +
       '<b>' + t.geometry.lengthM + ' × ' + t.geometry.widthM + ' × ' + t.geometry.heightM + ' m</b> (L × W × H), ' +
       'supported as: <b>' + fixture + '</b>. ' +
-      'A downward force of <b>' + t.loads.forceN + ' N</b> is applied ' + forceSpot + '. ' +
+      'A force of <b>' + t.loads.forceN + ' N</b> is applied ' + forceSpot + '. ' +
       'Mesh: <b>' + (t.mesh === 'coarse' ? 'extremely coarse (PC protection)' : 'standard') + '</b>.' +
       (aiInterpreted
         ? '<br><span style="font-size:12.5px;color:#182433;">These parameters are what the AI understood from your problem (text/photo) — check that the sketch below matches your task.</span>'
@@ -90,18 +89,46 @@
   function renderSchematic(t) {
     const fixture = t.loads.fixture;
 
-    // where the force arrow stands
+    // --- 1. VERTICAL SCHEMATIC (Axial Tension) ---
+    if (fixture === 'Fixed at bottom') {
+        document.getElementById('schematic').innerHTML = `
+        <svg viewBox="0 0 640 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- hatched wall at the bottom -->
+          <line x1="260" y1="250" x2="380" y2="250" stroke="#26334d" stroke-width="3"/>
+          ${[0,1,2,3,4,5,6,7].map(i => `
+            <line x1="${265 + i*15}" y1="250" x2="${255 + i*15}" y2="265" stroke="#26334d" stroke-width="1.5"/>
+          `).join('')}
+          
+          <!-- vertical bar -->
+          <rect x="296" y="70" width="48" height="180" fill="#c8d6ea" stroke="#26334d" stroke-width="2"/>
+          
+          <!-- force arrow pointing UP -->
+          <line x1="320" y1="70" x2="320" y2="15" stroke="#d97706" stroke-width="3"/>
+          <path d="M 320 10 L 314 22 L 326 22 Z" fill="#d97706"/>
+          <text x="335" y="40" font-size="15" font-weight="bold" fill="#d97706" font-family="Consolas, monospace">F = ${t.loads.forceN} N</text>
+          
+          <!-- vertical dimension line -->
+          <line x1="240" y1="70" x2="240" y2="250" stroke="#26334d" stroke-width="1"/>
+          <line x1="232" y1="70" x2="248" y2="70" stroke="#26334d" stroke-width="1"/>
+          <line x1="232" y1="250" x2="248" y2="250" stroke="#26334d" stroke-width="1"/>
+          <text x="220" y="165" font-size="13" fill="#26334d" text-anchor="middle" transform="rotate(-90, 220, 165)" font-family="Consolas, monospace">L = ${t.geometry.lengthM} m</text>
+          
+          <!-- cross-section note -->
+          <text x="320" y="295" font-size="12.5" fill="#182433" text-anchor="middle" font-family="Consolas, monospace">Cross-section W × H = ${t.geometry.widthM} × ${t.geometry.heightM} m</text>
+        </svg>`;
+        return; // exit early, no need to draw the horizontal one
+    }
+
+    // --- 2. HORIZONTAL SCHEMATIC (Bending) ---
     const fx = { 'Fixed at left end': 505, 'Fixed at right end': 135,
                  'Fixed at both ends': 320, 'Simply supported': 320 }[fixture] || 320;
 
-    // hatched wall symbol
     const wall = (x, flip) => `
       <line x1="${x}" y1="80" x2="${x}" y2="184" stroke="#26334d" stroke-width="3"/>
       ${[0,1,2,3,4,5,6].map(i => `
-        <line x1="${x}" y1="${88 + i*14}" x2="${x + (flip ? 14 : -14)}" y2="${78 + i*14}"
-              stroke="#26334d" stroke-width="1.5"/>`).join('')}`;
+        <line x1="${x}" y1="${88 + i*14}" x2="${x + (flip ? 14 : -14)}" y2="${78 + i*14}" stroke="#26334d" stroke-width="1.5"/>
+      `).join('')}`;
 
-    // triangle support symbol
     const tri = (x) => `
       <path d="M ${x} 156 L ${x-14} 180 L ${x+14} 180 Z" fill="none" stroke="#26334d" stroke-width="2"/>
       <line x1="${x-20}" y1="180" x2="${x+20}" y2="180" stroke="#26334d" stroke-width="2"/>`;
@@ -114,42 +141,46 @@
 
     document.getElementById('schematic').innerHTML = `
     <svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
-      <!-- beam -->
       <rect x="120" y="112" width="400" height="44" fill="#c8d6ea" stroke="#26334d" stroke-width="2"/>
       ${supports}
-      <!-- force arrow -->
       <line x1="${fx}" y1="46" x2="${fx}" y2="104" stroke="#d97706" stroke-width="3"/>
       <path d="M ${fx} 110 L ${fx-6} 98 L ${fx+6} 98 Z" fill="#d97706"/>
-      <text x="${fx + 10}" y="60" font-size="15" font-weight="bold" fill="#d97706"
-            font-family="Consolas, monospace">F = ${t.loads.forceN} N</text>
-      <!-- dimension line -->
+      <text x="${fx + 10}" y="60" font-size="15" font-weight="bold" fill="#d97706" font-family="Consolas, monospace">F = ${t.loads.forceN} N</text>
       <line x1="120" y1="210" x2="520" y2="210" stroke="#26334d" stroke-width="1"/>
       <line x1="120" y1="202" x2="120" y2="218" stroke="#26334d" stroke-width="1"/>
       <line x1="520" y1="202" x2="520" y2="218" stroke="#26334d" stroke-width="1"/>
-      <text x="320" y="232" font-size="13" fill="#26334d" text-anchor="middle"
-            font-family="Consolas, monospace">L = ${t.geometry.lengthM} m</text>
-      <!-- cross-section note -->
-      <text x="320" y="30" font-size="12.5" fill="#182433" text-anchor="middle"
-            font-family="Consolas, monospace">Cross-section W × H = ${t.geometry.widthM} × ${t.geometry.heightM} m</text>
+      <text x="320" y="232" font-size="13" fill="#26334d" text-anchor="middle" font-family="Consolas, monospace">L = ${t.geometry.lengthM} m</text>
+      <text x="320" y="30" font-size="12.5" fill="#182433" text-anchor="middle" font-family="Consolas, monospace">Cross-section W × H = ${t.geometry.widthM} × ${t.geometry.heightM} m</text>
     </svg>`;
   }
 
-  // ---------- quick strength estimate (classic beam bending) ----------
+  // ---------- quick strength estimate ----------
   function renderCheck(t) {
-    const F = t.loads.forceN;                 // N
-    const L = t.geometry.lengthM;             // m
-    const b = t.geometry.widthM;              // m
-    const h = t.geometry.heightM;             // m
+    const F = t.loads.forceN;                 
+    const L = t.geometry.lengthM;             
+    const b = t.geometry.widthM;              
+    const h = t.geometry.heightM;             
     const yieldMPa = t.material.yieldStrengthMPa;
+    const fixture = t.loads.fixture;
 
-    // max bending moment depends on the support type:
-    // cantilever: M = F·L | simply supported (center load): M = F·L/4 | fixed both ends: M = F·L/8
-    const k = { 'Fixed at left end': 1, 'Fixed at right end': 1,
-                'Fixed at both ends': 1/8, 'Simply supported': 1/4 }[t.loads.fixture] || 1;
+    let sigmaMPa = 0;
+    let calcLabel = '';
 
-    const M = k * F * L;                      // N·m
-    const sigmaMPa = (6 * M) / (b * h * h) / 1e6;   // σ = 6M / (b·h²), in MPa
-    const FS = yieldMPa / sigmaMPa;           // factor of safety
+    if (fixture === 'Fixed at bottom') {
+        // Axial Tension formula: Stress = Force / Area
+        const area = b * h; 
+        sigmaMPa = (F / area) / 1e6; // Convert to MPa
+        calcLabel = 'axial tensile stress (σ = F / A)';
+    } else {
+        // Bending formula: Stress = M * c / I
+        const k = { 'Fixed at left end': 1, 'Fixed at right end': 1,
+                    'Fixed at both ends': 1/8, 'Simply supported': 1/4 }[fixture] || 1;
+        const M = k * F * L;
+        sigmaMPa = (6 * M) / (b * h * h) / 1e6;
+        calcLabel = 'max bending stress (σ = M·c / I)';
+    }
+
+    const FS = yieldMPa / sigmaMPa;
 
     const box = document.getElementById('verdictBox');
     const s = sigmaMPa.toFixed(1);
@@ -157,14 +188,14 @@
 
     if (FS >= 1.5) {
       box.innerHTML = '<div class="verdict ok">✅ The beam should hold. ' +
-        'Estimated max bending stress ≈ <b>' + s + ' MPa</b> vs yield strength ' + yieldMPa +
+        'Estimated ' + calcLabel + ' ≈ <b>' + s + ' MPa</b> vs yield strength ' + yieldMPa +
         ' MPa — factor of safety ≈ <b>' + f + '</b>.</div>';
     } else if (FS >= 1) {
       box.innerHTML = '<div class="verdict warn">⚠️ Close to the limit. ' +
-        'Estimated max stress ≈ <b>' + s + ' MPa</b> vs yield ' + yieldMPa +
+        'Estimated ' + calcLabel + ' ≈ <b>' + s + ' MPa</b> vs yield ' + yieldMPa +
         ' MPa — factor of safety only ≈ <b>' + f + '</b>. Consider a smaller force or a thicker beam.</div>';
     } else {
-      box.innerHTML = '<div class="verdict bad">❌ Likely to fail: estimated stress ≈ <b>' + s +
+      box.innerHTML = '<div class="verdict bad">❌ Likely to fail: estimated ' + calcLabel + ' ≈ <b>' + s +
         ' MPa</b> exceeds the yield strength ' + yieldMPa +
         ' MPa (factor of safety ≈ <b>' + f + '</b>). Reduce the force or increase the cross-section.</div>';
     }
