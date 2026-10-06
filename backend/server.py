@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import types
+import asyncio
 
 # Import the partner's logic
 from engineering.rag.index import KnowledgeBase
@@ -87,14 +88,14 @@ async def generate_script(data: str = Form(...), image: UploadFile = File(None))
     response = None
     error_msg = ""
     
-    for attempt in range(max_retries):
+for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
                 model='gemini-3.5-flash',
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=0.1  # Делает нейросеть точной и менее "креативной"
+                    temperature=0.1
                 )
             )
             break
@@ -104,13 +105,15 @@ async def generate_script(data: str = Form(...), image: UploadFile = File(None))
             print(f"⚠️ Attempt {attempt + 1}/{max_retries} failed: {error_msg}")
             
             if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                time.sleep(65)
+                print("⏳ Rate limit (429). Waiting 65 seconds...")
+                await asyncio.sleep(65)  # Changed from time.sleep
             elif "503" in error_msg or "UNAVAILABLE" in error_msg:
-                time.sleep(15)
+                print("⏳ Servers overloaded (503). Waiting 15 seconds...")
+                await asyncio.sleep(15)  # Changed from time.sleep
             elif "400" in error_msg:
                 break
             else:
-                time.sleep(5)
+                await asyncio.sleep(5)   # Changed from time.sleep
 
     if not response:
         status = 503 if "503" in error_msg or "429" in error_msg else 500
