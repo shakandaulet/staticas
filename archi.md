@@ -66,10 +66,9 @@ The system is divided into two primary levels:
 
 Level 1: Frontend (Client-side):
 
-- app.html / app-script.js: Responsible for data collection (material, geometry, loads) and submitting POST requests containing text and images.
+The frontend consists of three pages served as six static files:
 
-- result.html / result-script.js: Parses the JSON response, renders SVG graphics (beams, supports, force vectors), calculates material resistance estimates (Stress Check), and outputs the executable code.
-
+- 
 
 
 Level 2: Backend (FastAPI Server):
