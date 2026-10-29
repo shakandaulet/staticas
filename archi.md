@@ -1,3 +1,126 @@
+# Statica Simulation Engine and Platform: Architecture Documentation
+
+## 1. Introduction and Goals
+
+Requirements Overview
+Statica allows students and engineers to describe a simulation task in plain language and receive a SolidWorks script that sets up the study, solves it, and checks the result. 
+
+Main functional requirements:
+- Accept a task as text, as a photo or PDF of a problem statement, or as values from the website form.
+- Build a typed simulation plan: study type, part geometry or the user's own part, material, restraints, loads, mesh, and the results to report.
+- Ask a clarifying question when a missing or ambiguous value would change the answer, instead of guessing.
+- Generate a Python script that drives SolidWorks through its COM API, without the language model writing the code.
+- Run the script, read the results back, and compare them with a closed-form solution of the same idealized problem.
+- Support static, frequency, buckling, thermal, and non-linear studies in SolidWorks Simulation, and internal and external flow in Flow Simulation.
+
+Quality Goals
+- Correctness: A result is either right or visibly flagged.
+- Safe generated code: Scripts are assembled from tested helpers and pass a static check before they are written to disk.
+- Transparency: Every operation carries a confidence level, and the output shows the hand calculation the result was compared with.
+- Extensibility: A new physics domain is added through the operation catalogue and an emitter function, without rewriting the prompt.
+- Frugality: The engine works within the Gemini free tier and does not overload shared lab computers.
+
+Stakeholders
+- Students: Set up statics and strength problems quickly, check answers, see how the study is built in SolidWorks.
+- Engineers: Routine checks on their own parts without clicking through every setup step.
+- Course instructor: A working, tested, and documented project within the scope of the assignment.
+- Engine developer: Code that is easy to extend and tests that show what really works.
+
+## 2. Architecture Constraints
+
+- SolidWorks 2024 with Simulation on Windows: SolidWorks is automated through COM with pywin32. Generated scripts run only on a Windows machine with a SolidWorks licence.
+- Python 3.12 with few dependencies: The planning side needs only pydantic, numpy, FastAPI, and google-genai. pywin32 is needed only on the machine that drives SolidWorks.
+- Gemini Developer API free tier: Strict limits of 20 requests per day per project, requiring robust error handling for 429 and 503 HTTP status codes.
+- No offline mode: Every plan comes from the model. Without the API key, the engine stops with an explanation instead of guessing a plan from keywords.
+- Infrastructure: The backend utilizes the free tier of Render, which introduces port constraints and server sleep cycles. The frontend utilizes Netlify.
+
+## 3. Context and Scope
+
+Business Context
+The engine sits between the person who describes the task and SolidWorks. 
+
+- User: Sends task text, photos, or form values. Receives the plan summary, generated Python script, and hand-check results.
+- Statica Frontend: Sends request text, image, and form values. Receives the parsed plan and Python script to render dynamic SVG schematics.
+- Gemini API: Receives prompts with retrieved reference material. Returns draft plans as structured JSON and short explanations of results.
+- SolidWorks: Receives COM calls from the generated script. Returns study results, support reactions, and plot images.
+
+Technical Context
+- Command line interface: cli.py, started through run.ps1.
+- Python REST API: FastAPI application exposing the /generate endpoint for the frontend.
+- File system: runs/ (scripts, plots, saved parts), .index/ (vector index, verified examples), .sessions/ (saved plans). All paths are anchored to the package.
+
+## 4. Solution Strategy
+
+- The model plans and never writes the script. Gemini fills in a typed plan: a list of operations with named quantities, units, and targets. A deterministic emitter turns the plan into Python built from tested runtime helpers.
+- One operation catalogue (OP_SPECS) is read by the prompt builder, the narrowing step, the question logic, and the emitter. 
+- Hybrid retrieval over the knowledge base: dense embeddings and BM25, fused by rank, then diversified. 
+- AI as an intelligent filter: If the user's text description conflicts with the form parameters, the AI gives absolute priority to the text and overrides the form data, returning the corrected data as a structured JSON response.
+
+## 5. Building Block View
+
+Level 1: System as a Whole
+
+The frontend consists of three pages served as six static files:
+
+- index.html: Self-contained landing page (styles and animation inline). Presents the product and leads to the application via a single CTA. Features a CSS-3D rotating beam with an animated force arrow, built without external libraries.
+ <img width="1913" height="982" alt="landing png" src="https://github.com/user-attachments/assets/76e7199b-9afd-4163-947f-d7806b0888b3" />
+
+ 
+- app.html / app-script.js / app-style.css: The main application. Contains the Firebase authentication overlay (email/password sign-up and login, which blocks access to the form until authenticated), the problem input form (text prompt, image upload via click or drag-and-drop, material presets with auto-fill, geometry, loads, mesh density), and client-side validation of all 11 input fields before any network request is made. A single constant (BACKEND_URL) switches the page between demo mode (sample script, no server required) and live mode.
+<img width="1905" height="986" alt="form png" src="https://github.com/user-attachments/assets/734a540f-c9a4-4352-ac6a-77cbf966349e" />
+
+
+- result.html / result-script.js: The output page. Receives the generated code and task parameters from app.html via sessionStorage, renders an SVG free-body schematic (beam, support symbols per fixture type, force vector, dimension line), runs an independent hand-calculated stress check, and provides Copy and Download (.py) actions. Direct visits without generated data show a guided empty state instead of a broken page.
+<img width="1887" height="979" alt="result png" src="https://github.com/user-attachments/assets/288e4196-f28b-439d-b1c1-e4ce4a56089a" />
+
+
+Level 2: Core Engine Modules
+- schema.py: Pydantic models of the plan.
+- ops.py: Operation catalogue defining slots, units, options, and confidence levels.
+- physics.py: Dimensionless groups, section properties, and closed-form solutions.
+- planner.py: The Gemini client with retries, reading images, and converting drafts into plans.
+- emitter.py: Maps operations to Python code generation.
+
+## 6. Runtime View
+
+Planning a study and generating the script
+1. The user fills the form, adds text, and clicks Generate.
+2. The frontend sends multipart/form-data to the backend.
+3. The backend extracts the text, runs hybrid retrieval (dense and BM25), and assembles the prompt.
+4. The backend calls the Gemini API with response_mime_type set to application/json.
+5. If Gemini returns 429 or 503, the backend initiates an asynchronous exponential backoff loop.
+6. Gemini returns a strict JSON object containing the code and parsed parameters.
+7. The backend returns this JSON to the frontend, which updates the SVG schematic and displays the script.
+
+## 7. Deployment View
+
+- Web backend host: Deployed as a Web Service on Render using Docker and Uvicorn. Requires Python 3.12, FastAPI, numpy, google-genai, and the GEMINI_API_KEY in the environment.
+- Frontend host: Deployed on Netlify via continuous deployment from GitHub.
+- User workstation: Windows, SolidWorks 2024 with Simulation, Python, and pywin32.
+
+## 8. Crosscutting Concepts
+
+Quota Management and Network Errors
+Google API frequently returns 503 (High Demand) and 429 (Resource Exhausted) errors. The system implements an asynchronous retry loop with exponential backoff using asyncio to prevent blocking the main server thread.
+
+```python
+import asyncio
+
+for attempt in range(max_retries):
+    try:
+        response = client.models.generate_content(...)
+        break
+    except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            await asyncio.sleep(65)
+        elif "503" in error_msg or "UNAVAILABLE" in error_msg:
+            await asyncio.sleep(15)
+        elif "400" in error_msg:
+            break
+        else:
+            await asyncio.sleep(5)
+
 # Statica Project Architectural Documentation (arc42 Methodology)
 
 
@@ -77,6 +200,7 @@ The frontend consists of three pages served as six static files:
 
 
 - result.html / result-script.js: The output page. Receives the generated code and task parameters from app.html via sessionStorage, renders an SVG free-body schematic (beam, support symbols per fixture type, force vector, dimension line), runs an independent hand-calculated stress check, and provides Copy and Download (.py) actions. Direct visits without generated data show a guided empty state instead of a broken page.
+<img width="1887" height="979" alt="result png" src="https://github.com/user-attachments/assets/288e4196-f28b-439d-b1c1-e4ce4a56089a" />
 
 
 
