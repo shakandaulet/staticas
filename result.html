@@ -207,6 +207,43 @@
     color: var(--ink-soft);
     margin-bottom: 16px;
   }
+
+  /* ----- the plan: what the AI understood, step by step ----- */
+  .ai-reply { font-size: 14px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; }
+
+  .study-tag {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 10px;
+    margin-bottom: 12px;
+  }
+
+  .step-detail { font-size: 12.8px; color: var(--ink-soft); font-family: var(--mono); }
+
+  .assumptions { margin-top: 14px; font-size: 13.5px; line-height: 1.6; color: var(--ink-soft); }
+  .assumptions ul { padding-left: 20px; }
+
+  /* ----- questions the plan cannot go on without ----- */
+  .question { margin-bottom: 14px; font-size: 14px; line-height: 1.55; }
+  .question .why { font-size: 12.5px; color: var(--ink-soft); }
+
+  .question input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #ebebe8;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .question input:focus { outline: none; border-color: var(--accent); }
+  button.btn-link:disabled { opacity: 0.6; cursor: wait; }
 </style>
 </head>
 <body>
@@ -214,7 +251,7 @@
 <div class="container">
 
   <header>
-    <h1>✅ Your script is ready</h1>
+    <h1 id="pageTitle">✅ Your script is ready</h1>
   </header>
 
   <p class="demo-badge" id="demoBadge" hidden>
@@ -229,6 +266,32 @@
   </div>
 
   <div id="resultContent">
+
+    <!-- what the AI understood from the text / photo -->
+    <div class="card" id="aiCard" hidden>
+      <h2>What the AI understood</h2>
+      <span class="study-tag" id="studyTag"></span>
+      <p class="ai-reply" id="aiReply"></p>
+    </div>
+
+    <!-- questions: the plan is incomplete, so there is no script yet -->
+    <div class="card" id="questionsCard" hidden>
+      <h2>A few details are missing</h2>
+      <div id="questions"></div>
+      <div class="verdict bad" id="answerError" hidden></div>
+      <button class="btn-link" id="answerBtn">Answer and rebuild the plan</button>
+    </div>
+
+    <!-- the simulation plan, step by step -->
+    <div class="card" id="planCard" hidden>
+      <h2>Simulation plan</h2>
+      <ol class="steps-list" id="planSteps"></ol>
+      <div class="assumptions" id="assumptionsBox" hidden>
+        <b>Assumed — each of these could be wrong:</b>
+        <ul id="assumptions"></ul>
+      </div>
+      <div id="checks" style="margin-top:14px;"></div>
+    </div>
 
     <!-- what was built: description + schematic -->
     <div class="card" id="partCard" hidden>
@@ -247,9 +310,9 @@
       </p>
     </div>
 
-    <div class="code-card">
+    <div class="code-card" id="codeCard">
       <div class="code-head">
-        <span>solidworks_simulation.py</span>
+        <span id="codeFile">solidworks_simulation.py</span>
         <div class="code-actions">
           <button class="btn-small" id="copyBtn">📋 Copy</button>
           <button class="btn-small" id="downloadBtn">⬇ Download .py</button>

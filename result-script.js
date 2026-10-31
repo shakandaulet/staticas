@@ -7,59 +7,186 @@
   let formTask = null;
   try { formTask = JSON.parse(sessionStorage.getItem('payloadData')); } catch {}
 
-  // parameters Gemini extracted from the user's text/photo (may be absent)
-  let aiParsed = null;
-  try { aiParsed = JSON.parse(sessionStorage.getItem('parsedData')); } catch {}
+  // the server's whole answer: plan, questions, checks (absent in demo mode)
+  let plan = null;
+  try { plan = JSON.parse(sessionStorage.getItem('planData')); } catch {}
 
-  // Added 'Fixed at bottom' to allow the AI to switch to vertical mode
-  const FIXTURES = ['Fixed at left end', 'Fixed at right end',
-                    'Fixed at both ends', 'Simply supported', 
-                    'Fixed at bottom'];
+  // same address as in app-script.js: answers to questions go there too
+  const BACKEND_URL = 'https://staticas.onrender.com/generate';
 
-  function pickNum(aiValue, formValue) {
-    const n = parseFloat(aiValue);
-    return isNaN(n) || n <= 0 ? formValue : n;
-  }
+  // yield strengths for the quick check, matched by name (MPa)
+  const YIELD_MPA = [['6061', 275], ['1020', 350], ['304', 215],
+                     ['ti-6al-4v', 880], ['titanium', 880], ['plain carbon', 220]];
 
-  let task = formTask;
+  let task = null;
   let aiInterpreted = false;
 
-  if (aiParsed && formTask) {
-    task = {
-      material: {
-        name: aiParsed.materialName || formTask.material.name,
-        yieldStrengthMPa: pickNum(aiParsed.yieldStrengthMPa, formTask.material.yieldStrengthMPa)
-      },
-      geometry: {
-        lengthM: pickNum(aiParsed.lengthM, formTask.geometry.lengthM),
-        widthM:  pickNum(aiParsed.widthM,  formTask.geometry.widthM),
-        heightM: pickNum(aiParsed.heightM, formTask.geometry.heightM)
-      },
-      loads: {
-        fixture: FIXTURES.includes(aiParsed.fixture) ? aiParsed.fixture : formTask.loads.fixture,
-        forceN:  pickNum(aiParsed.forceN, formTask.loads.forceN)
-      },
-      mesh: formTask.mesh
-    };
+  if (plan) {
+    task = beamFromPlan(plan, formTask);
     aiInterpreted = true;
+  } else {
+    task = formTask;                    // demo mode: the form is all there is
   }
 
   const emptyState    = document.getElementById('emptyState');
   const resultContent = document.getElementById('resultContent');
 
-  if (!code) {
+  if (!code && !plan) {
     emptyState.hidden = false;
     resultContent.hidden = true;
   } else {
-    document.getElementById('codeOutput').textContent = code;
     document.getElementById('demoBadge').hidden = !isDemo;
-    setupButtons();
+    if (plan) renderPlan(plan);
+    if (code) {
+      document.getElementById('codeOutput').textContent = code;
+      setupButtons();
+    } else {
+      document.getElementById('codeCard').hidden = true;
+    }
     if (task) {
       renderSummary(task);
       renderSchematic(task);
       renderCheck(task);
     }
   }
+
+  // text from the server goes on the page as text, never as markup
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  function el(tag, text, cls) {
+    const e = document.createElement(tag);
+    if (text != null) e.textContent = text;
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  // ---------- the schematic and quick check only fit one shape: a cantilever ----------
+  // a rectangular beam, held at one end, one sideways force at the other. Anything
+  // else gets the plan without a drawing rather than a drawing of the wrong thing.
+  function beamFromPlan(p, form) {
+    if (p.domain !== 'static' || !p.ready) return null;
+    const steps = p.steps || [];
+    const geom = steps.find(s => s.op === 'set_geometry' &&
+                                 (s.options || {}).primitive === 'rectangular_beam');
+    const fixtures = steps.filter(s => s.op === 'add_fixture');
+    const forces = steps.filter(s => s.op === 'add_force');
+    if (!geom || fixtures.length !== 1 || forces.length !== 1) return null;
+
+    const at = (s) => {
+      const t = s.target || {};
+      if (t.role === 'fixed_end' || (t.kind === 'extreme' && t.side === 'min')) return 'min';
+      if (t.role === 'free_end' || (t.kind === 'extreme' && t.side === 'max')) return 'max';
+      return '';
+    };
+    const dir = String((forces[0].options || {}).direction || '');
+    if (at(fixtures[0]) !== 'min' || at(forces[0]) !== 'max' || !/_(x|y)$/.test(dir)) return null;
+
+    const q = geom.quantities || {};
+    const num = (k) => (q[k] ? q[k].value : NaN);
+    const mat = steps.find(s => s.op === 'apply_material');
+    const name = mat ? (mat.options || {}).name || 'default material' : 'default material';
+    const known = YIELD_MPA.find(([k]) => name.toLowerCase().includes(k));
+    const formYield = form && form.material && form.material.yieldStrengthMPa;
+
+    return {
+      material: { name: name, yieldStrengthMPa: formYield > 0 ? formYield : (known ? known[1] : null) },
+      geometry: { lengthM: num('length'), widthM: num('width'), heightM: num('height') },
+      loads: { fixture: 'Fixed at left end', forceN: forces[0].quantities.magnitude.value },
+      mesh: form ? form.mesh : 'coarse'
+    };
+  }
+
+  // ---------- what the AI understood, the plan, the questions ----------
+  function renderPlan(p) {
+    document.getElementById('pageTitle').textContent =
+      p.ready ? '✅ Your script is ready' : '📝 The plan needs a few details';
+
+    document.getElementById('studyTag').textContent = p.domain_label || p.domain;
+    document.getElementById('aiReply').textContent = p.reply || p.summary || '';
+    document.getElementById('aiCard').hidden = false;
+
+    const list = document.getElementById('planSteps');
+    list.replaceChildren();
+    for (const s of p.steps || []) {
+      const li = el('li', s.note || s.label);
+      const details = [];
+      for (const [k, v] of Object.entries(s.quantities || {})) {
+        const said = v.original && v.original !== 'default' ? ' (you wrote ' + v.original + ')' : '';
+        details.push(k.replace(/_/g, ' ') + ' = ' + (+v.value.toPrecision(5)) + ' ' + (v.unit || '') + said);
+      }
+      for (const [k, v] of Object.entries(s.options || {})) details.push(k + ': ' + v);
+      if (s.needs_target && s.target_text) details.push('on: ' + s.target_text);
+      if (s.confidence === 'unverified') details.push('API call not yet verified on SolidWorks');
+      if (details.length) li.append(el('div', details.join(' · '), 'step-detail'));
+      list.append(li);
+    }
+
+    const as = p.assumptions || [];
+    document.getElementById('assumptionsBox').hidden = !as.length;
+    document.getElementById('assumptions').replaceChildren(...as.map(a => el('li', a)));
+
+    const checks = document.getElementById('checks');
+    checks.replaceChildren();
+    const pf = p.preflight || {};
+    for (const f of pf.findings || []) {
+      const box = el('div', f.message + (f.detail ? ' — ' + f.detail : ''),
+                     'verdict ' + (f.level === 'blocking' ? 'bad' : f.level === 'warning' ? 'warn' : 'ok'));
+      checks.append(box);
+    }
+    for (const w of p.warnings || []) checks.append(el('div', w, 'verdict warn'));
+    for (const g of p.gaps || []) checks.append(el('div', 'Missing: ' + g, 'verdict warn'));
+    if (p.blocked_by) checks.append(el('div', p.blocked_by, 'verdict bad'));
+    document.getElementById('planCard').hidden = false;
+
+    const qs = p.questions || [];
+    document.getElementById('questionsCard').hidden = !qs.length;
+    const box = document.getElementById('questions');
+    box.replaceChildren();
+    for (const q of qs) {
+      const div = el('div', null, 'question');
+      div.append(el('div', q.question));
+      if (q.why) div.append(el('div', q.why, 'why'));
+      if (q.options && q.options.length) div.append(el('div', 'Options: ' + q.options.join(', '), 'why'));
+      const input = el('input');
+      input.type = 'text';
+      input.placeholder = q.suggested || 'your answer';
+      input.dataset.q = q.question;
+      div.append(input);
+      box.append(div);
+    }
+  }
+
+  // answers go back in the same session, so the plan is edited, not rebuilt
+  document.getElementById('answerBtn').addEventListener('click', async () => {
+    const err = document.getElementById('answerError');
+    const answers = [...document.querySelectorAll('#questions input')]
+      .filter(i => i.value.trim()).map(i => i.dataset.q + ' ' + i.value.trim());
+    if (!answers.length) { err.textContent = 'Answer at least one question.'; err.hidden = false; return; }
+
+    const btn = document.getElementById('answerBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Rebuilding the plan...';
+    err.hidden = true;
+    const fd = new FormData();
+    fd.append('message', answers.join('  '));
+    fd.append('session_id', (plan && plan.session_id) || '');
+    try {
+      const r = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Server error: ' + r.status);
+      sessionStorage.setItem('planData', JSON.stringify(data));
+      sessionStorage.setItem('generatedCode', data.code || '');
+      location.reload();
+    } catch (e) {
+      err.textContent = e.message || 'Could not reach the server.';
+      err.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Answer and rebuild the plan';
+    }
+  });
 
   // ---------- description of the part ----------
   function renderSummary(t) {
@@ -73,10 +200,10 @@
     }[fixture] || 'on the beam';
 
     document.getElementById('partSummary').innerHTML =
-      'A <b>' + t.material.name + '</b> beam, ' +
-      '<b>' + t.geometry.lengthM + ' × ' + t.geometry.widthM + ' × ' + t.geometry.heightM + ' m</b> (L × W × H), ' +
-      'supported as: <b>' + fixture + '</b>. ' +
-      'A force of <b>' + t.loads.forceN + ' N</b> is applied ' + forceSpot + '. ' +
+      'A <b>' + esc(t.material.name) + '</b> beam, ' +
+      '<b>' + esc(t.geometry.lengthM) + ' × ' + esc(t.geometry.widthM) + ' × ' + esc(t.geometry.heightM) + ' m</b> (L × W × H), ' +
+      'supported as: <b>' + esc(fixture) + '</b>. ' +
+      'A force of <b>' + esc(t.loads.forceN) + ' N</b> is applied ' + forceSpot + '. ' +
       'Mesh: <b>' + (t.mesh === 'coarse' ? 'extremely coarse (PC protection)' : 'standard') + '</b>.' +
       (aiInterpreted
         ? '<br><span style="font-size:12.5px;color:#182433;">These parameters are what the AI understood from your problem (text/photo) — check that the sketch below matches your task.</span>'
@@ -185,6 +312,15 @@
     const box = document.getElementById('verdictBox');
     const s = sigmaMPa.toFixed(1);
     const f = FS.toFixed(1);
+
+    // a material the table does not know: the stress, without a verdict
+    if (!(yieldMPa > 0)) {
+      box.innerHTML = '<div class="verdict ok">Estimated ' + calcLabel + ' ≈ <b>' + s +
+        ' MPa</b>. Yield strength of ' + esc(t.material.name) +
+        ' is not in the quick-check table — compare it yourself.</div>';
+      document.getElementById('checkCard').hidden = false;
+      return;
+    }
 
     if (FS >= 1.5) {
       box.innerHTML = '<div class="verdict ok">✅ The beam should hold. ' +

@@ -108,6 +108,19 @@ ALLOWED_ORIGINS = [
     "http://localhost:5500", "http://127.0.0.1:5500",
     "null",
 ]
+# The deployed page lives on another origin (GitHub Pages). Comma
+# separated, so the address is set on the host rather than committed.
+ALLOWED_ORIGINS += [o.strip().rstrip("/") for o in
+                    os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+# A public server with a key behind it is a free Gemini quota for anyone
+# who finds the URL. When set, every request must carry this code.
+ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
+
+# Planning calls per address per window. The free tier allows a handful a
+# minute in total, so one visitor clicking repeatedly must not use it up.
+RATE_LIMIT = int(os.environ.get("RATE_LIMIT", "12"))
+RATE_WINDOW_S = int(os.environ.get("RATE_WINDOW_S", "600"))
 
 # --------------------------------------------------------------------------
 # Diagnostics
@@ -126,7 +139,7 @@ LOCATION_HELP = (
 )
 
 TRANSIENT_MARKERS = ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED",
-                     "high demand", "overloaded")
+                     "high demand", "overloaded", "504", "DEADLINE_EXCEEDED")
 API_RETRIES = 3
 
 

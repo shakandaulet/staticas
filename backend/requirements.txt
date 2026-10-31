@@ -3,5 +3,4 @@ uvicorn
 python-multipart
 google-genai
 numpy
-scikit-learn
-sentence-transformers
+pydantic

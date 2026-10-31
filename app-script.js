@@ -99,7 +99,10 @@ function friendlyAuthError(code) {
 const materialSelect = document.getElementById('material');
 materialSelect.addEventListener('change', () => {
   const opt = materialSelect.selectedOptions[0];
-  if (opt.value !== 'custom') {
+  if (opt.value === 'auto') {
+    // the material comes from the problem text: nothing to override
+    ['young', 'poisson', 'yield'].forEach(id => { document.getElementById(id).value = ''; });
+  } else if (opt.value !== 'custom') {
     document.getElementById('young').value = opt.dataset.e;
     document.getElementById('poisson').value = opt.dataset.nu;
     document.getElementById('yield').value = opt.dataset.sy;
@@ -181,32 +184,42 @@ function validateForm() {
     mark('prompt', 'Describe the problem or upload a photo — at least one is required.');
   }
 
+  // every number below is an optional override: empty means "take it
+  // from the problem", only a value that IS there has to make sense
+  const filled = (id) => String(document.getElementById(id).value).trim() !== '';
+
   const young = parseNum('young');
-  if (isNaN(young) || young <= 0) mark('young', "Young's Modulus must be a positive number (GPa).");
+  if (filled('young') && !(young > 0)) mark('young', "Young's Modulus must be a positive number (GPa).");
 
   const nu = parseNum('poisson');
-  if (isNaN(nu) || nu <= 0 || nu >= 0.5) mark('poisson', "Poisson's Ratio must be between 0 and 0.5 — physics does not allow more.");
+  if (filled('poisson') && !(nu > 0 && nu < 0.5)) mark('poisson', "Poisson's Ratio must be between 0 and 0.5 — physics does not allow more.");
 
   const sy = parseNum('yield');
-  if (isNaN(sy) || sy <= 0) mark('yield', 'Yield Strength must be a positive number (MPa).');
+  if (filled('yield') && !(sy > 0)) mark('yield', 'Yield Strength must be a positive number (MPa).');
 
   ['len', 'wid', 'hgt'].forEach(id => {
     const v = parseNum(id);
     const names = { len: 'Length', wid: 'Width', hgt: 'Height' };
-    if (isNaN(v) || v <= 0) mark(id, names[id] + ' must be a positive number (m).');
+    if (filled(id) && !(v > 0)) mark(id, names[id] + ' must be a positive number (m).');
   });
 
   const force = parseNum('force');
-  if (isNaN(force) || force <= 0) mark('force', 'Force must be a positive number (N).');
+  if (filled('force') && !(force > 0)) mark('force', 'Force must be a positive number (N).');
 
   return problems;
+}
+
+// text from the server goes on the page as text, never as markup
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
 function showErrors(problems) {
   const box = document.getElementById('formErrors');
   if (!problems.length) { box.hidden = true; return; }
   box.innerHTML = '<b>Please fix the following:</b><ul>' +
-    problems.map(p => '<li>' + p + '</li>').join('') + '</ul>';
+    problems.map(p => '<li>' + escapeHtml(p) + '</li>').join('') + '</ul>';
   box.hidden = false;
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -270,18 +283,46 @@ print("Simulation complete - open the Simulation tab in SolidWorks")
 `;
 
 // puts the code AND the task data into the browser "pocket", opens the result page
-// parsed = parameters extracted by Gemini (null if the server sent plain text)
-function goToResult(code, isDemo, payload, parsed) {
+// plan = the server's whole answer: the plan, its questions and checks (null in demo mode)
+function goToResult(code, isDemo, payload, plan) {
   sessionStorage.setItem('generatedCode', code);
   sessionStorage.setItem('isDemo', isDemo ? 'yes' : 'no');
   sessionStorage.setItem('payloadData', JSON.stringify(payload));
-  if (parsed) {
-    sessionStorage.setItem('parsedData', JSON.stringify(parsed));
+  sessionStorage.removeItem('parsedData');
+  if (plan) {
+    sessionStorage.setItem('planData', JSON.stringify(plan));
   } else {
-    sessionStorage.removeItem('parsedData');
+    sessionStorage.removeItem('planData');
   }
   window.location.href = 'result.html';
 }
+
+// The problem text plus whatever the form overrides, in words: the planner
+// reads one message, and a filled field is just one more thing the user said.
+function buildMessage(payload) {
+  const hints = [];
+  const m = payload.material;
+  if (materialSelect.value !== 'auto') {
+    const props = [];
+    if (m.youngsModulusGPa > 0) props.push("E = " + m.youngsModulusGPa + " GPa");
+    if (m.poissonsRatio > 0) props.push("Poisson's ratio " + m.poissonsRatio);
+    if (m.yieldStrengthMPa > 0) props.push("yield strength " + m.yieldStrengthMPa + " MPa");
+    hints.push("Material: " + (materialSelect.value === 'custom' ? 'custom' : m.name) +
+               (props.length ? " (" + props.join(", ") + ")" : ""));
+  }
+  const g = payload.geometry;
+  if (g.lengthM > 0) hints.push("Length " + g.lengthM + " m");
+  if (g.widthM > 0) hints.push("Width " + g.widthM + " m");
+  if (g.heightM > 0) hints.push("Height " + g.heightM + " m");
+  if (payload.loads.fixture) hints.push("Supports: " + payload.loads.fixture);
+  if (payload.loads.forceN > 0) hints.push("Force " + payload.loads.forceN + " N");
+  if (payload.mesh === 'coarse') hints.push("Mesh: as coarse as the limits allow, to protect the PC");
+  return [payload.prompt.trim(), hints.length ? "Form values: " + hints.join("; ") + "." : ""]
+    .filter(Boolean).join("\n\n");
+}
+
+// Render's free tier sleeps; a ping on page load starts waking it while the user types.
+if (BACKEND_URL) fetch(BACKEND_URL.replace(/\/generate$/, '/health')).catch(() => {});
 
 // ---- Generate button ----
 document.getElementById('generateBtn').addEventListener('click', async () => {
@@ -321,28 +362,38 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
   // step 3b: real mode — send to the backend, then open the result page
   const formData = new FormData();
-  formData.append('data', JSON.stringify(payload));   // field "data": the JSON
+  formData.append('message', buildMessage(payload));  // field "message": the problem in words
   if (fileInput.files.length) {
     formData.append('image', fileInput.files[0]);     // field "image": the picture (optional)
   }
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Generating script...';
+  btn.textContent = '⏳ Planning the simulation (up to a minute)...';
+
+  let response;
+  try {
+    response = await fetch(BACKEND_URL, { method: 'POST', body: formData });
+  } catch (err) {
+    console.error(err);
+    showErrors(['Could not reach the server. It may still be waking up — wait a minute and try again.']);
+    btn.disabled = false;
+    btn.textContent = 'Generate Python Script';
+    return;
+  }
 
   try {
-    const response = await fetch(BACKEND_URL, { method: 'POST', body: formData });
-    if (!response.ok) throw new Error('Server error: ' + response.status);
-
-    const responseData = await response.json();
-
-    // Используем встроенную функцию, которая правильно сохраняет всё в sessionStorage
-    // передаем: код, режим (не демо), данные с формы, параметры от нейросети
-    goToResult(responseData.code, false, payload, responseData.parsed);
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = typeof responseData.detail === 'string' ? responseData.detail : '';
+      throw new Error(detail || 'Server error: ' + response.status);
+    }
+    // the plan travels with the code: the result page shows both
+    goToResult(responseData.code || '', false, payload, responseData);
 
   } catch (err) {
     console.error(err);
-    showErrors(['Could not reach the server. Check that the backend is running and BACKEND_URL is correct.']);
+    showErrors([err.message]);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Generate Python Script';

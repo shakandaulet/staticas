@@ -1,9 +1,11 @@
-# There is no web layer in this package: the server and the chat panel
-# belong to the rest of the team, so FastAPI and uvicorn are not
-# dependencies of it.
 pydantic>=2.6
 numpy>=1.26
 google-genai>=0.3           # Gemini: planning and embeddings
+
+# The web layer: server.py and web/index.html.
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9     # form fields and the image upload
 
 # Optional. The server embeds with Gemini, since it needs the key anyway;
 # this is only used if the Gemini client cannot be created.

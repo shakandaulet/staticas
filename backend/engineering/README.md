@@ -86,10 +86,25 @@ the environment and only from the environment — a key written into
 source is a key that gets committed, and a committed key is a
 compromised one.
 
-There is no web layer in this repository: the server and the chat panel
-belong to the rest of the team. Everything here is importable, so a
-panel that wants a plan calls `core.planner` and `codegen.emitter` the
-same way `cli.py` does.
+### The web page
+
+`api.generate()` is the whole pipeline as one call: a message (and
+optionally a photo of the problem) in; the plan, its questions, the
+physics checks and -- once nothing is open -- the validated script out.
+A follow-up is the next call with the same `session_id`.
+
+`server.py` puts that behind HTTP (`GET /health`, `GET /domains`,
+`POST /generate`) and `web/index.html` is the page. Locally:
+
+```powershell
+cd ..; uvicorn engineering.server:app --port 8000
+# then open web/index.html?api=http://localhost:8000
+```
+
+On a public host, set `ACCESS_CODE` so the key behind the server is not
+a free quota for whoever finds the URL, and `ALLOWED_ORIGINS` to the
+page's address. Requests are also limited per address (`RATE_LIMIT` per
+`RATE_WINDOW_S`).
 
 ### Tests
 
@@ -340,6 +355,9 @@ tests/      test_pipeline.py          everything that needs no SolidWorks
             planner_eval.py           the live model on reference requests
             solidworks/real_parts.py  real runs, every study type and real parts
 cli.py      the command line: plan, questions, script, run
+api.py      the same pipeline as one call, for a web layer
+server.py   FastAPI over api.py
+web/        index.html     the page
 ```
 
 `core/ops.py` is worth reading first. The `OP_SPECS` table is the single

@@ -145,7 +145,10 @@ class Gemini:
             return
         try:
             from google import genai
-            self.client = genai.Client(api_key=config.API_KEY)
+            # A request on a flaky connection otherwise waits forever; a
+            # timeout turns it into an error the retry loop can handle.
+            self.client = genai.Client(api_key=config.API_KEY,
+                                       http_options={"timeout": 120_000})
             self.status = "ready"
         except Exception as e:
             self.status = f"client failed: {e}"
@@ -336,6 +339,15 @@ changes everything, a missing study name changes nothing.
 
 8. Every plan ends with solve and extract_results. Order does not \
 matter -- the emitter sequences it.
+
+9. Every number the user gave goes into `quantities`, under the slot \
+name the catalogue lists. The note is shown to the user and never read: \
+a dimension that is only in the note is a dimension the script does not \
+have. "50×100×2000 мм" on a beam is width 50, height 100, length 2000, \
+each {unit: "mm"}; on a plate "100×100×5 мм" is width, length, thickness.
+
+10. Return EVERY step the study needs -- geometry, material, each \
+restraint and load, solve, extract_results -- in one plan.
 """
 
 

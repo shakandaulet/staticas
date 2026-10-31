@@ -56,7 +56,7 @@
     <div class="grid-2">
       <div>
         <h2>Problem Description </h2>
-        <textarea id="prompt" placeholder="Example: A cantilever beam 2 meters long fixed at the left end with a 500 N downward force at the right end..."></textarea>
+        <textarea id="prompt" placeholder="Example: A cantilever beam 2 meters long fixed at the left end with a 500 N downward force at the right end... Statics, heat transfer, natural frequencies, buckling and pipe flow all work."></textarea>
       </div>
       <div>
         <h2>Image Upload (Hibbeler Statics Diagram)</h2>
@@ -78,6 +78,7 @@
       <div>
         <label for="material">Standard material</label>
         <select id="material">
+          <option value="auto" selected>Auto (from the problem)</option>
           <option value="steel1020" data-e="200" data-nu="0.29" data-sy="350">AISI 1020 Steel</option>
           <option value="al6061" data-e="69" data-nu="0.33" data-sy="275">6061-T6 Aluminum Alloy</option>
           <option value="steel304" data-e="193" data-nu="0.29" data-sy="215">AISI 304 Stainless Steel</option>
@@ -87,15 +88,15 @@
       </div>
       <div>
         <label for="young">Young's Modulus (GPa)</label>
-        <input type="number" id="young" value="200" step="1">
+        <input type="number" id="young" placeholder="auto" step="1">
       </div>
       <div>
         <label for="poisson">Poisson's Ratio</label>
-        <input type="number" id="poisson" value="0.29" step="0.01">
+        <input type="number" id="poisson" placeholder="auto" step="0.01">
       </div>
       <div>
         <label for="yield">Yield Strength (MPa)</label>
-        <input type="number" id="yield" value="350" step="1">
+        <input type="number" id="yield" placeholder="auto" step="1">
       </div>
     </div>
   </div>
@@ -108,15 +109,15 @@
         <div class="grid-3">
           <div>
             <label for="len">Length L (m)</label>
-            <input type="number" id="len" value="2.0" step="0.1">
+            <input type="number" id="len" placeholder="auto" step="0.1">
           </div>
           <div>
             <label for="wid">Width W (m)</label>
-            <input type="number" id="wid" value="0.05" step="0.01">
+            <input type="number" id="wid" placeholder="auto" step="0.01">
           </div>
           <div>
             <label for="hgt">Height H (m)</label>
-            <input type="number" id="hgt" value="0.1" step="0.01">
+            <input type="number" id="hgt" placeholder="auto" step="0.01">
           </div>
         </div>
       </div>
@@ -126,6 +127,7 @@
           <div>
             <label for="fixture">Fixtures (Support)</label>
             <select id="fixture">
+              <option value="">Auto (from the problem)</option>
               <option>Fixed at left end</option>
               <option>Fixed at right end</option>
               <option>Fixed at both ends</option>
@@ -134,7 +136,7 @@
           </div>
           <div>
             <label for="force">Force Magnitude (N)</label>
-            <input type="number" id="force" value="500" step="10">
+            <input type="number" id="force" placeholder="auto" step="10">
           </div>
         </div>
       </div>
