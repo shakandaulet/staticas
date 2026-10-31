@@ -15,9 +15,24 @@ Settings, all from the environment:
 """
 
 import os
+import shutil
+from pathlib import Path
 
 # The site's own address, unless Render says otherwise.
 os.environ.setdefault("ALLOWED_ORIGINS", "https://shakandaulet.github.io")
+
+# The prebuilt knowledge-base index. GitHub's web upload cannot create a
+# folder whose name starts with a dot, so the files sit at the repository
+# root and are copied into engineering/.index before the engine loads.
+# Without them every start re-embeds the whole corpus: two minutes and a
+# share of the free Gemini quota, after each time Render wakes up.
+_here = Path(__file__).resolve().parent
+_index = _here / "engineering" / ".index"
+_index.mkdir(parents=True, exist_ok=True)
+for _name in ("chunks.json", "vectors.npz", "verified_examples.jsonl"):
+    _src = _here.parent / _name
+    if _src.exists() and not (_index / _name).exists():
+        shutil.copy2(_src, _index / _name)
 
 from engineering.server import app  # noqa: E402
 
